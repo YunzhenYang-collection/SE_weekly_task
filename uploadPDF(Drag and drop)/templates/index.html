@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Upload</title>
+    <style>
+        #drop-area {
+            border: 2px dashed #ccc;
+            border-radius: 20px;
+            width: 480px;
+            font-family: sans-serif;
+            margin: 100px auto;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        #drop-area.highlight {
+            border-color: purple;
+        }
+
+        p {
+            margin-top: 0;
+        }
+
+        .my-form {
+            margin-bottom: 10px;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 10px;
+            background: #ccc;
+            cursor: pointer;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .button:hover {
+            background: #ddd;
+        }
+
+        #fileElem {
+            display: none;
+        }
+
+        /* 進度條 */
+        progress {
+            width: 100%;
+            height: 20px;
+        }
+
+        /* 調整提示字元與檔案名稱連結的位置 */
+        #upload-status, #uploaded-file-name {
+            font-family: sans-serif; 
+            color: green;
+            text-align: center; 
+            margin-top: 10px;
+            font-weight: normal; 
+            font-size: 16px; 
+        }
+
+        #uploaded-file-name a {
+            color: #0066cc;
+            text-decoration: none;
+            font-family: sans-serif;
+        }
+
+        #uploaded-file-name a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload PDF</h1>
+
+    <div id="drop-area">
+        <form class="my-form">
+            <p>Upload your PDF by dragging and dropping it onto the dashed region or selecting it manually.</p>
+            <input type="file" id="fileElem" accept="application/pdf" onchange="handleFiles(this.files)">
+            <label class="button" for="fileElem">Select a PDF file</label>
+        </form>
+        <progress id="progressBar" max="100" value="0"></progress>
+        <button id="uploadButton" class="button" disabled onclick="startUpload()">Upload</button>
+    </div>
+
+    <!-- 提示字與檔案名稱區塊，顯示在區塊下方，靠左對齊 -->
+    <div id="upload-status"></div>
+    <div id="uploaded-file-name"></div>
+
+    <script>
+        let dropArea = document.getElementById('drop-area');
+        let progressBar = document.getElementById('progressBar');
+        let uploadProgress = [];
+        let selectedFile = null;
+        let uploadedFileName = document.getElementById('uploaded-file-name');
+        let uploadStatus = document.getElementById('upload-status');
+        let uploadButton = document.getElementById('uploadButton');
+
+        // 防止預設行為 (防止文件被打開)
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // 當文件被拖曳到區域時，將區域高亮顯示
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropArea.classList.add('highlight');
+        }
+
+        function unhighlight(e) {
+            dropArea.classList.remove('highlight');
+        }
+
+        // 處理拖放檔案
+        dropArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            files = [...files];
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                selectedFile = files[0]; // 保存選擇的檔案以供上傳
+                uploadButton.disabled = false;
+                progressBar.value = 0;
+                uploadStatus.textContent = 'File ready for upload: ' + selectedFile.name;
+                uploadedFileName.textContent = ''; // 清除上次上傳的檔案名稱
+            } else {
+                alert("Only PDF files are allowed.");
+            }
+        }
+
+        function startUpload() {
+            if (selectedFile) {
+                initializeProgress();
+                uploadFile(selectedFile); // 上傳選定的檔案
+            }
+        }
+
+        function initializeProgress() {
+            progressBar.value = 0;
+            uploadProgress = [0];
+        }
+
+        function updateProgress(percent) {
+            uploadProgress[0] = percent;
+            progressBar.value = percent;
+        }
+
+        function uploadFile(file) {
+            let url = '/upload'; // 使用 Flask 後端的上傳路由
+            let xhr = new XMLHttpRequest();
+            let formData = new FormData();
+
+            xhr.open('POST', url, true);
+
+            xhr.upload.addEventListener('progress', function(e) {
+                updateProgress((e.loaded * 100.0 / e.total) || 100);
+            });
+
+            xhr.addEventListener('readystatechange', function(e) {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    let response = JSON.parse(xhr.responseText);
+                    uploadStatus.textContent = "File uploaded successfully!";
+                    uploadedFileName.innerHTML = `<a href="/uploads/${response.filename}" target="_blank">${response.filename}</a>`;
+                    uploadButton.disabled = true;
+                }
+                else if (xhr.readyState == 4 && xhr.status != 200) {
+                    alert("Error uploading the file.");
+                }
+            });
+
+            formData.append('file', file);
+            xhr.send(formData);
+        }
+    </script>
+</body>
+</html>
