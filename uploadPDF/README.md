@@ -1,4 +1,4 @@
-1. Download the entire folder, and open the folder in vscode or other platform
+1. **Download the entire folder, and open the folder in vscode or other platform**
 2. **start up:**
    - Install Flask
    - Enter the following command in the terminal:
