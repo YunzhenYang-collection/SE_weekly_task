@@ -12,4 +12,4 @@
      File Name: \<filename\>
 5. Click the herf of filename to view the pdf file.
 ---
-"drop.html" is still trying
+~~"drop.html" is still trying~~ : check new folder:[uploadPDF(Drag and drop)](https://github.com/41171119H/SE_weekly_task/tree/main/uploadPDF(Drag%20and%20drop))
