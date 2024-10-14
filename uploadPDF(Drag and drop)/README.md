@@ -4,10 +4,11 @@
 ```
 uploadPDF(Drag and drop)/
 │
-├── app.py                   # Flask 應用主程式
-├── uploads/                 # 用來儲存上傳的檔案
+├── venv
+├── app.py                   
+├── uploads/                
 └── templates/
-    └── index.html           # 前端 HTML 檔案
+    └── index.html           
 ```
 ### 3. Start up:
 ```
