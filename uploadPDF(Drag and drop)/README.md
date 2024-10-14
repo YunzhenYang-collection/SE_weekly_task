@@ -1,3 +1,4 @@
+- [Download zipfile](https://github.com/41171119H/SE_weekly_task/blob/main/uploadPDF(Drag%20and%20drop).zip)
 ### 1. Funtion:
   - upload PDF file
 ### 2. Sructure:
