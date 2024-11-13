@@ -1,5 +1,5 @@
-﻿diff --git a/models.py b/models.py
-index 713dd95..bccda85 100644
+diff --git a/models.py b/models.py
+index 713dd95..14a2fbb 100644
 --- a/models.py
 +++ b/models.py
 @@ -93,3 +93,22 @@ class Course_sections(db.Model):
@@ -10,7 +10,7 @@ index 713dd95..bccda85 100644
 +class TeacherFiles(db.Model):
 +    __tablename__ = "teacher_files"
 +    id = db.Column(db.Integer, primary_key=True)
-+    class_id = db.Column(db.Integer, nullable=False)
++    class_id = db.Column(db.Integer, db.ForeignKey('courses.id'), nullable=False)
 +    teacher = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=False)
 +    name = db.Column(db.String(255), nullable=False)
 +    path = db.Column(db.String(255), nullable=False)
