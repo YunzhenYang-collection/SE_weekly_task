@@ -1,0 +1,28 @@
+﻿diff --git a/models.py b/models.py
+index 713dd95..bccda85 100644
+--- a/models.py
++++ b/models.py
+@@ -93,3 +93,22 @@ class Course_sections(db.Model):
+             'publish_date': self.publish_date.isoformat(),
+         }
+ 
++# Upload files: Teachers
++class TeacherFiles(db.Model):
++    __tablename__ = "teacher_files"
++    id = db.Column(db.Integer, primary_key=True)
++    class_id = db.Column(db.Integer, nullable=False)
++    teacher = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=False)
++    name = db.Column(db.String(255), nullable=False)
++    path = db.Column(db.String(255), nullable=False)
++    checksum = db.Column(db.String(64), nullable=False)
++    
++# Upload files: Students
++class StudentFiles(db.Model):
++    __tablename__ = "student_files"
++    id = db.Column(db.Integer, primary_key=True)
++    class_id = db.Column(db.Integer, nullable=False)
++    student = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
++    name = db.Column(db.String(255), nullable=False)
++    path = db.Column(db.String(255), nullable=False)
++    checksum = db.Column(db.String(64), nullable=False)
+\ No newline at end of file
