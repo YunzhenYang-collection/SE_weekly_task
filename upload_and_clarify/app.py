@@ -303,8 +303,8 @@ def generate_checksum(filepath):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
+# 學生和教師的資訊分別存到 teacher_files 或 student_files (有更新 models.py)
 def save_file_info(uploader_id, uploader_type, class_id, filename, filepath):
-    # 學生和教師的資訊分別存到 teacher_files 或 student_files (有更新 models.py)
     checksum = generate_checksum(filepath)
 
     if uploader_type == "teacher":
@@ -377,10 +377,10 @@ def upload_various_file():
     claims = get_jwt()
     uploader_id = claims.get("user_id")
     uploader_type = claims.get("user_type")
-    course_id = request.args.get("course_id")
+    class_id = request.form.get("class_id")  # 修改這裡，從 course_id 改為 class_id
 
-    if not course_id:
-        return jsonify({'error': 'Course ID is required'}), 400
+    if not class_id:
+        return jsonify({'error': 'Class ID is required'}), 400
 
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
@@ -393,56 +393,44 @@ def upload_various_file():
     filename, filepath = save_file(file, OTHER_ALLOWED_EXTENSIONS)
     if filename:
         # 儲存檔案資訊到資料庫
-        if save_file_info(uploader_id, uploader_type, course_id, filename, filepath):
+        if save_file_info(uploader_id, uploader_type, class_id, filename, filepath):
             return jsonify({'message': 'File uploaded successfully', 'filename': filename}), 200
         else:
             return jsonify({'error': 'Failed to save file info'}), 500
-    else:
-        return jsonify({'error': 'File type not allowed'}), 400
-    
+    return jsonify({'error': 'File type not allowed'}), 400
+
 # secure_filename:
 def save_file(file, allowed_extensions):
-    """儲存上傳的檔案並回傳檔案名稱與路徑"""
-    if file and allowed_file(file.filename, allowed_extensions):
-        # 確保檔案名稱安全
+    if file and '.' in file.filename and file.filename.rsplit('.', 1)[1].lower() in allowed_extensions:
         filename = secure_filename(file.filename)
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-
-        # 避免檔案名稱衝突，添加編號
         counter = 1
         while os.path.exists(file_path):
             name, ext = os.path.splitext(filename)
             filename = f"{name}_{counter}{ext}"
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             counter += 1
-
-        # 儲存檔案
         file.save(file_path)
         return filename, file_path
     return None, None
     
-# 下載檔案api : api/download/
+# 下載檔案api : api/download/ 仍在 debug 中
 @app.route('/api/download/<filename>', methods=['GET'])
 @jwt_required()
 def download_file(filename):
     claims = get_jwt()
     user_type = claims.get("user_type")
     user_id = claims.get("user_id")
-    course_id = request.args.get("course_id")
+    # class_id = request.args.get("class_id")
+    class_id = request.form.get("class_id")
 
-    if not course_id:
-        return jsonify({'error': 'Course ID is required'}), 400
+    if not class_id:
+        return jsonify({'error': 'Class ID is required'}), 400
 
-    # 確認課程是否存在
-    course = Course.query.get(course_id)
-    if not course:
-        return jsonify({'error': 'Course not found'}), 404
-
-    # 確認下載權限
     if user_type == "teacher":
-        file_record = TeacherFiles.query.filter_by(name=filename, class_id=course_id, teacher=user_id).first()
+        file_record = TeacherFiles.query.filter_by(name=filename, class_id=class_id, teacher=user_id).first()
     elif user_type == "student":
-        file_record = StudentFiles.query.filter_by(name=filename, class_id=course_id, student=user_id).first()
+        file_record = StudentFiles.query.filter_by(name=filename, class_id=class_id, student=user_id).first()
     else:
         return jsonify({'error': 'Access forbidden'}), 403
 
@@ -450,7 +438,6 @@ def download_file(filename):
         return jsonify({'error': 'File not found'}), 404
 
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
-
 
 # API 回傳以及顯示上傳的檔案:
 @app.route('/api/uploads/<filename>', methods=['GET'])
