@@ -93,17 +93,17 @@ class Course_sections(db.Model):
             'publish_date': self.publish_date.isoformat(),
         }
 
-# 教師上傳檔案
+# Upload files: Teachers
 class TeacherFiles(db.Model):
     __tablename__ = "teacher_files"
     id = db.Column(db.Integer, primary_key=True)
-    class_id = db.Column(db.Integer, nullable=False)
+    class_id = db.Column(db.Integer, db.ForeignKey('courses.id'), nullable=False)
     teacher = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=False)
     name = db.Column(db.String(255), nullable=False)
     path = db.Column(db.String(255), nullable=False)
     checksum = db.Column(db.String(64), nullable=False)
     
-# 學生上傳檔案
+# Upload files: Students
 class StudentFiles(db.Model):
     __tablename__ = "student_files"
     id = db.Column(db.Integer, primary_key=True)
