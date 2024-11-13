@@ -1,0 +1,195 @@
+﻿diff --git a/app.py b/app.py
+index 44e11f8..39a8df8 100644
+--- a/app.py
++++ b/app.py
+@@ -6,10 +6,14 @@ from marshmallow import ValidationError
+ from schemas import LoginSchema, UserDataUpdateSchema
+ from flask_migrate import Migrate
+ from flask_cors import CORS
++from models import db, TeacherFiles, StudentFiles
++from werkzeug.utils import secure_filename
+ 
+ import os
++import hashlib
+ 
+ ALLOWED_EXTENSIONS = {'pdf'}
++OTHER_ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp', 'doc', 'docx', 'txt'}
+ 
+ app = Flask(__name__)
+ cors = CORS(app)
+@@ -290,9 +294,54 @@ def save_file(file):
+     return None
+ 
+ 
+-# API: 銝瑼???
+-@app.route('/api/upload', methods=['POST'])
+-def upload_file():
++# function: checksum & ?脣?鞈??啗??澈
++def generate_checksum(filepath):
++    # 閮?瑼???SHA256 
++    sha256_hash = hashlib.sha256()
++    with open(filepath, "rb") as f:
++        for byte_block in iter(lambda: f.read(4096), b""):
++            sha256_hash.update(byte_block)
++    return sha256_hash.hexdigest()
++
++def save_file_info(uploader_id, uploader_type, class_id, filename, filepath):
++    # 摮貊???撣怎?鞈??摮 teacher_files ??student_files (???models.py)
++    checksum = generate_checksum(filepath)
++
++    if uploader_type == "teacher":
++        new_file = TeacherFiles(
++            class_id=class_id,
++            teacher=uploader_id,
++            name=filename,
++            path=filepath,
++            checksum=checksum
++        )
++    elif uploader_type == "student":
++        new_file = StudentFiles(
++            class_id=class_id,
++            student=uploader_id,
++            name=filename,
++            path=filepath,
++            checksum=checksum
++        )
++    else:
++        return False
++
++    db.session.add(new_file)
++    db.session.commit()
++    return True
++
++# API: 銝瑼??? (?湔: 撠?閮??亥??澈)
++@app.route('/api/upload_pdf', methods=['POST'])
++@jwt_required()
++def upload_pdf():
++    claims = get_jwt()
++    uploader_id = claims.get("user_id")
++    uploader_type = claims.get("user_type")
++    course_id = request.args.get("course_id")
++
++    if not course_id:
++        return jsonify({'error': 'Course ID is required'}), 400
++
+     # 瑼Ｘ?臬??隞?     if 'file' not in request.files:
+         return jsonify({'error': 'No file part'}), 400
+@@ -303,13 +352,106 @@ def upload_file():
+     if file.filename == '':
+         return jsonify({'error': 'No selected file'}), 400
+ 
++    # 瑼Ｘ瑼??臬??PDF
++    if not file.filename.lower().endswith('.pdf'):
++        return jsonify({'error': 'Only PDF files are allowed'}), 400
++
+     # ?脣?瑼?
+-    filename = save_file(file)
++    filename, filepath = save_file(file, ALLOWED_EXTENSIONS)
+     if filename:
+-        return jsonify({'message': 'File uploaded successfully', 'filename': filename}), 200
++        # ?澆 generate_checksum()
++        checksum = generate_checksum(filepath)
++        
++        # ?澆 save_file_info() ?脣?鞈??脰??澈銝?+        if save_file_info(uploader_id, uploader_type, course_id, filename, filepath, checksum):
++            return jsonify({'message': 'PDF file uploaded successfully', 'filename': filename}), 200
++        else:
++            return jsonify({'error': 'Failed to save file info'}), 500
+     else:
+         return jsonify({'error': 'File type not allowed'}), 400
+ 
++# ?啣??嗡?瑼?憿????喳???+@app.route('/api/upload_various_file', methods=['POST'])
++@jwt_required()
++def upload_various_file():
++    claims = get_jwt()
++    uploader_id = claims.get("user_id")
++    uploader_type = claims.get("user_type")
++    course_id = request.args.get("course_id")
++
++    if not course_id:
++        return jsonify({'error': 'Course ID is required'}), 400
++
++    if 'file' not in request.files:
++        return jsonify({'error': 'No file part'}), 400
++
++    file = request.files['file']
++
++    if file.filename == '':
++        return jsonify({'error': 'No selected file'}), 400
++
++    filename, filepath = save_file(file, OTHER_ALLOWED_EXTENSIONS)
++    if filename:
++        # ?脣?瑼?鞈??啗??澈
++        if save_file_info(uploader_id, uploader_type, course_id, filename, filepath):
++            return jsonify({'message': 'File uploaded successfully', 'filename': filename}), 200
++        else:
++            return jsonify({'error': 'Failed to save file info'}), 500
++    else:
++        return jsonify({'error': 'File type not allowed'}), 400
++    
++# secure_filename:
++def save_file(file, allowed_extensions):
++    """?脣?銝??獢蒂?瑼??迂?楝敺?""
++    if file and allowed_file(file.filename, allowed_extensions):
++        # 蝣箔?瑼??迂摰
++        filename = secure_filename(file.filename)
++        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
++
++        # ?踹?瑼??迂銵?嚗溶?楊??+        counter = 1
++        while os.path.exists(file_path):
++            name, ext = os.path.splitext(filename)
++            filename = f"{name}_{counter}{ext}"
++            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
++            counter += 1
++
++        # ?脣?瑼?
++        file.save(file_path)
++        return filename, file_path
++    return None, None
++    
++# 銝?瑼?api : api/download/
++@app.route('/api/download/<filename>', methods=['GET'])
++@jwt_required()
++def download_file(filename):
++    claims = get_jwt()
++    user_type = claims.get("user_type")
++    user_id = claims.get("user_id")
++    course_id = request.args.get("course_id")
++
++    if not course_id:
++        return jsonify({'error': 'Course ID is required'}), 400
++
++    # 蝣箄?隤脩??臬摮
++    course = Course.query.get(course_id)
++    if not course:
++        return jsonify({'error': 'Course not found'}), 404
++
++    # 蝣箄?銝?甈?
++    if user_type == "teacher":
++        file_record = TeacherFiles.query.filter_by(name=filename, class_id=course_id, teacher=user_id).first()
++    elif user_type == "student":
++        file_record = StudentFiles.query.filter_by(name=filename, class_id=course_id, student=user_id).first()
++    else:
++        return jsonify({'error': 'Access forbidden'}), 403
++
++    if not file_record or not os.path.exists(file_record.path):
++        return jsonify({'error': 'File not found'}), 404
++
++    return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
++
++
+ # API ?隞亙?憿舐內銝??獢?
+ @app.route('/api/uploads/<filename>', methods=['GET'])
+ def get_uploaded_file(filename):
+@@ -317,9 +459,10 @@ def get_uploaded_file(filename):
+     if os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], filename)):
+         return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+     else:
++        # Not Found: 404
+         return jsonify({'error': 'File not found'}), 404
+ 
+ if __name__ == "__main__":
+     if not os.path.exists(app.config['UPLOAD_FOLDER']):
+         os.makedirs(app.config['UPLOAD_FOLDER'])
+-    app.run(debug=True)
++    app.run(debug=True)
+\ No newline at end of file
