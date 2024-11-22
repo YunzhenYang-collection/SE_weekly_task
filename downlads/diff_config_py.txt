@@ -1,0 +1,10 @@
+diff --git a/config.py b/config.py
+index 42e96e4..fff7943 100644
+--- a/config.py
++++ b/config.py
+@@ -19,3 +19,4 @@ class Config:
+     JWT_ACCESS_TOKEN_EXPIRES = False
+     
+     UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER")
++    DOWNLOAD_FOLDER = os.environ.get("DOWNLOAD_FOLDER")
+\ No newline at end of file
